@@ -1,0 +1,56 @@
+import numpy as np
+import pandas as pd
+
+path_to_output = "/SET/PATH/TO/DIRECTORY/"
+
+### Read csv file with following columns: Acronym,Ncases,Ncontrols,FilePath
+gwas_df = pd.read_csv("ICD10_PanUK_ENDO_COEL.csv")
+traits = list(gwas_df.Acronym)
+#path_dic = gwas_df.set_index("Acronym")["Reference"].to_dict()
+path_dic = gwas_df.set_index("Acronym")["FilePath"].to_dict()
+ncases_dic = gwas_df.set_index("Acronym")["Ncases"].to_dict()
+ncontrols_dic = gwas_df.set_index("Acronym")["Ncontrols"].to_dict()
+
+rule all:
+    input:
+        expand(path_to_output + "{trait}_gwas_summary_uk10kck.ma", trait = traits)
+    
+rule format_ma:
+    input:
+        variant_file = "full_variant_qc_metrics.txt.bgz"
+    params: 
+        path = lambda wildcards: path_dic[wildcards.trait],
+        ncases = lambda wildcards: ncases_dic[wildcards.trait],
+        ncontrols = lambda wildcards: ncontrols_dic[wildcards.trait]
+    output:
+        temp(path_to_output + "{trait}_gwas_summary.ma")
+    threads: 1
+    resources:
+        mem_mb = 40000
+    script:
+        "scripts/prepare_panuk_gwas_ma_format.py"
+
+rule variant_check:
+    input: 
+        gwas = path_to_output + "{trait}_gwas_summary.ma"
+    params:
+        uk10k = "uk10k.autosomal",
+        bim_file = "{trait}_snps_uk10k"
+    output:
+        out = path_to_output + "{trait}_gwas_summary_uk10kck.ma",
+        snps = temp("snps_{trait}"),
+        bim_file = temp("{trait}_snps_uk10k.bim"),
+        log = temp("{trait}_snps_uk10k.log"),
+        nosex = temp("{trait}_snps_uk10k.nosex")
+    threads: 1
+    resources:
+        mem_mb = 8000
+    shell:
+        """
+        awk '{{print $1}}' {input.gwas} > {output.snps}
+
+        plink --bfile {params.uk10k} --extract {output.snps} --out {params.bim_file} --make-just-bim 
+
+        python3 scripts/strand_check.py -g {input.gwas} -r {output.bim_file} -o {output.out}
+
+        """

@@ -1,0 +1,47 @@
+import numpy as np
+import pandas as pd
+
+TRAITS = ["SMOKECES"]
+PATH_TRAIT_DIC = {"SMOKECES": "SmokingCessation.txt.gz"}
+
+path_to_output = "/SET/PATH/TO/DIRECTORY/"
+
+rule all:
+    input:
+        expand(path_to_output + "{trait}_gwas_summary_uk10kck.ma", trait = TRAITS),
+
+rule format_ma:
+    input: 
+        lambda wildcards: PATH_TRAIT_DIC[wildcards.trait]
+    output:
+        temp(path_to_output + "{trait}_gwas_summary.ma")
+    threads: 1
+    resources:
+        mem_mb = 20000
+    script:
+        "scripts/prepare_SMOKECES.py"
+
+rule variant_check:
+    input: 
+        gwas = path_to_output + "{trait}_gwas_summary.ma"
+    params:
+        uk10k = "uk10k.autosomal",
+        bim_file = "{trait}_snps_uk10k"
+    output:
+        out = path_to_output + "{trait}_gwas_summary_uk10kck.ma",
+        snps = temp("snps_{trait}"),
+        bim_file = temp("{trait}_snps_uk10k.bim"),
+        log = temp("{trait}_snps_uk10k.log"),
+        nosex = temp("{trait}_snps_uk10k.nosex")
+    threads: 1
+    resources:
+        mem_mb = 8000
+    shell:
+        """
+        awk '{{print $1}}' {input.gwas} > {output.snps}
+
+        plink --bfile {params.uk10k} --extract {output.snps} --out {params.bim_file} --make-just-bim 
+
+        python3 scripts/strand_check.py -g {input.gwas} -r {output.bim_file} -o {output.out}
+
+        """
