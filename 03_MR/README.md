@@ -12,7 +12,7 @@ More information can be found at https://github.com/masadler/smrivw/wiki/Univari
 ### 01_univariable_MR
 Contains scripts to run univariable two-sample MR.
 * 01_MR_analysis: Scripts to run univariable MR.
-* 02_TwoSampleMR.R: Script that runs univariable MR diretly with the [TwoSampleMR](https://mrcieu.github.io/TwoSampleMR/) version 0.5.6 package.
+* 02_TwoSampleMR.R: Script that runs univariable MR directly with the [TwoSampleMR](https://mrcieu.github.io/TwoSampleMR/) version 0.5.6 package.
 * 03_MR_PRESSO: Scripts that run [MR-PRESSO](https://github.com/rondolab/MR-PRESSO) with the TwoSampleMR wrapper.
 * 04_sensitivity_IV: Scripts to select instrumental variables (IVs) based on a stringent Steiger filter.
 * 05_sensitivtiy_MR: Scripts to run univariable MR with the IVs from 04_sensitivity_IV.
