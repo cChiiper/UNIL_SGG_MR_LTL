@@ -1,0 +1,45 @@
+EXPO_TRAITS = ['SMOKECES', 'MDD', 'ALCOWF', 'HYPERTENSION', 'BFM', 'BMI', 'LYMPH',
+    'EOSINO', 'URATE', 'WBC', 'CREAC', 'MCH', 'HEIGHT', 'IGF1', 'APOB',
+    'RBC', 'CHOLEST', 'LDL', 'LIPIDDISORDER', 'EDUAGE', 'LSMOKE', 'AGEFIRSTB', 'AGELASTB']
+
+OUTCOME_TRAITS = ["TELOMERE"]
+
+### Setting directory paths
+path_to_exp_ma_files = "/SET/PATH/TO/DIRECTORY/"
+path_to_sens_files = "/SET/PATH/TO/DIRECTORY/{expo_trait}_steiger/"
+path_to_output = "/SET/PATH/TO/DIRECTORY/{expo_trait}_steiger/{expo_trait}_sens_res/"
+
+### General rule
+rule all:
+    input:
+        expand(path_to_output + "{expo_trait}_to_{outcome_trait}_twoSampleMR_result_sens.tsv", expo_trait = EXPO_TRAITS, outcome_trait = OUTCOME_TRAITS),
+
+### Subset 
+rule subset_exp:
+    input:
+        expo_df = path_to_exp_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma",
+        snps = path_to_sens_files + "{expo_trait}_SENS_snps.txt"
+    output:
+        path_to_sens_files + "{expo_trait}_gwas_summary_sens.ma"
+    script:
+        "scripts/subset_exposure.py"
+
+### Prepare MR_data
+rule prepare_MR_data:
+    input:
+        expo_df = path_to_sens_files + "{expo_trait}_gwas_summary_sens.ma",
+        outcome_df = path_to_sens_files + "{expo_trait}_to_{outcome_trait}_gwas_subset.ma",
+        snps = path_to_sens_files + "{expo_trait}_SENS_snps.txt"
+    output:
+        path_to_output + "{expo_trait}_to_{outcome_trait}_MR_data_sens.tsv"
+    script:
+        "scripts/prepare_MR_data.R"
+
+### Run twoSampleMR
+rule twoSampleMR:
+    input:
+        path_to_output + "{expo_trait}_to_{outcome_trait}_MR_data_sens.tsv"
+    output:
+        path_to_output + "{expo_trait}_to_{outcome_trait}_twoSampleMR_result_sens.tsv"
+    script:
+        "scripts/twoSampleMR.R"

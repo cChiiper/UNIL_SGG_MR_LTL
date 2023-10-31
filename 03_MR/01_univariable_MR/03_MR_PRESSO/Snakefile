@@ -1,0 +1,48 @@
+import os
+import glob
+
+EXPOSURES = ['AGEFIRSTB', 'AGELASTB', 'ALCOWF', 'APOB', 'BFM', 'BMI', 'CHOLEST', 'CREAC', 'EDUAGE', 'EOSINO', 'HEIGHT', 'HYPERTENSION', 'IGF1', 'LDL', 'LIPIDDISORDER', 'LYMPH', 'MCH', 'MDD', 'RBC', 'URATE', 'WBC'] 
+# Removed as no outliers: SMOKECES LSMOKE
+OUTCOMES = ['TELOMERE']
+# EXPOSURES = ['TELOMERE']
+# OUTCOMES = ['ALB', 'AST', 'CAD_consortium', 'CKD', 'EOSINO', 'FVC', 'HDL', 'IGF1', 'KIDNEYCANCER', 'LOAD_consortium', 'LYMPH', 'MCH', 'MONO', 'NEUTRO', 'OVARIANCANCER', 'PLATELET', 'PROSTATECANCER', 'RA_consortium', 'RBC', 'SHBG', 'SLE', 'TEST', 'TOTPROT', 'WHRADJBMI']
+# Renoved as no outliers: MENSTRUATION_UKBB, ANEURYSM
+
+### Setting paths 
+path_to_input = "/SET/PATH/TO/DIRECTORY/"
+path_to_output = "/SET/PATH/TO/DIRECTORY/"
+
+# Function to find all matching files
+def find_files(path, expo, outcome):
+    pattern = os.path.join(path, "**", f"{expo}_to_{outcome}_MR_data.tsv")
+    matching_files = glob.glob(pattern, recursive=True)
+    
+    # Check for multiple files
+    if len(matching_files) > 1:
+        raise ValueError(f"Multiple files found for {expo}_to_{outcome}_MR_data.tsv: {', '.join(matching_files)}")
+    elif len(matching_files) == 0:
+        raise ValueError(f"No file found for {expo}_to_{outcome}_MR_data.tsv")
+    
+    return matching_files[0]  # Return the single file path as a string
+
+# Rule to identify the files
+rule all:
+    input:
+        expand("{output_path}/{expo}_to_{outcome}_MR_PRESSO_result.tsv", 
+                output_path=path_to_output, 
+                expo=EXPOSURES, 
+                outcome=OUTCOMES)
+
+# Rule to process the files
+rule process_mr_data:
+    input:
+        mr_data = lambda wildcards: find_files(path_to_input, wildcards.expo, wildcards.outcome),
+        HBB_snps = "HBB_rsids.txt",
+        HLA_snps = "HLA_rsids.txt"
+    params:
+        EXPNAME = "{expo}",
+        OUTNAME = "{outcome}"
+    output:
+        "{output_path}/{expo}_to_{outcome}_MR_PRESSO_result.tsv"
+    script:
+        "script/run_MR_PRESSO.R"

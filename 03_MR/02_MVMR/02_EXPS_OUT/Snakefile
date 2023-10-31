@@ -1,0 +1,118 @@
+MED_TRAITS = ['HEIGHT','IGF1']
+OUTCOME_TRAITS = ['TELOMERE']
+
+
+### Setting paths 
+path_to_ma_files = "/SET/PATH/TO/DIRECTORY/"
+path_to_output = "/SET/PATH/TO/DIRECTORY/"
+path_to_gwas_snps = "/SET/PATH/TO/DIRECTORY/"
+
+### TEMPORARY ### Only works for one outcome
+
+def get_sorted_initials(traits):
+    return ''.join(sorted([trait[0] for trait in traits]))
+### Construct output filename
+output_filename = path_to_output + get_sorted_initials(MED_TRAITS) + "_to_" + '_'.join(OUTCOME_TRAITS) + "_MVMR_result.tsv"
+
+### TEMPORARY ###
+
+### Harmonize all SNPs
+rule all:
+    input:
+        output_filename,
+        expand(path_to_output + "{expo_trait}_to_{outcome_trait}_mvmr_clumped_snps.txt", expo_trait = MED_TRAITS, outcome_trait = OUTCOME_TRAITS)
+
+rule harmonize_all:
+    input:
+        expand(path_to_ma_files + "{trait}_gwas_summary_uk10kck.ma", trait = OUTCOME_TRAITS + MED_TRAITS)
+    output:
+        path_to_output + "all_harmonized_snps.txt"
+    script:
+        "script/harmonize_all.py"
+
+### Get associated SNPs for all traits
+rule select_gwas_snps:
+    input:
+        path_to_ma_files + "{trait}_gwas_summary_uk10kck.ma"
+    output:
+        path_to_gwas_snps + "{trait}_snps.txt"
+    shell:
+        "awk '{{if ($7 < 5e-8) {{ print $1 }} }}' {input} > {output}"
+
+### Supset associated SNPs
+rule harmonize_each:
+    input:
+        path_to_output + "all_harmonized_snps.txt",
+        path_to_gwas_snps + "{trait}_snps.txt"
+    output:
+        path_to_output + "{trait}_mvmr_snps.txt"
+    script:
+        "script/harmonize_each.py"
+
+### Clumping of each traits separately
+rule clump_separately:
+    input:
+        gwas = expand(path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma", expo_trait = MED_TRAITS),
+        expo_snps = path_to_output + "{expo_trait}_mvmr_snps.txt",
+        bfile = "uk10k.autosomal.bed"
+    params:
+        bfile = "uk10k.autosomal",
+        out = path_to_output + "{expo_trait}_to_{outcome_trait}_clump"
+    output:
+        clump_input = temp("{expo_trait}_to_{outcome_trait}_snp_pval.txt"),
+        clump_output = temp(path_to_output + "{expo_trait}_to_{outcome_trait}_clump.clumped"),
+        clump_log = temp(path_to_output + "{expo_trait}_to_{outcome_trait}_clump.log"),
+        clump_nosex = temp(path_to_output + "{expo_trait}_to_{outcome_trait}_clump.nosex"),
+        clumped_expo_snps = path_to_output + "{expo_trait}_to_{outcome_trait}_mvmr_clumped_snps.txt"
+    shell:
+        """
+        awk {{'print $1"\t"$7'}} {input.gwas} > {output.clump_input}
+
+        plink --bfile {params.bfile} --extract {input.expo_snps} --clump {output.clump_input} --clump-r2 0.01 --clump-field 'p' --out {params.out}
+
+        awk '$3 ~ /^rs/ {{print $3 }}' {output.clump_output} > {output.clumped_expo_snps}
+        """
+
+### Harmonize data
+rule harmonize_data:
+    input:
+        snps = expand(path_to_output + "{expo_trait}_to_{outcome_trait}_mvmr_clumped_snps.txt", expo_trait = MED_TRAITS, outcome_trait = OUTCOME_TRAITS),
+        gwas_exp = expand(path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma", expo_trait = MED_TRAITS),
+        gwas_out = expand(path_to_ma_files + "{outcome_trait}_gwas_summary_uk10kck.ma", outcome_trait = OUTCOME_TRAITS)
+    output:
+        path_to_output + "harmonized_data_mvmr.tsv",
+        path_to_output + "ranked_clumping_mvmr.tsv"
+    script:
+        "script/harmonize_data.R"
+        
+rule clump_together:
+    input:
+        rank =  path_to_output + "ranked_clumping_mvmr.tsv",
+        bfile = "uk10k.autosomal.bed"
+    params:
+        bfile = "uk10k.autosomal",
+        out = path_to_output + "all_harmonized_clumped_snps"
+    output:
+        clump_output = temp(path_to_output + "all_harmonized_clumped_snps.clumped"),
+        clump_log = temp(path_to_output + "all_harmonized_clumped_snps.log"),
+        clump_nosex = temp(path_to_output + "all_harmonized_clumped_snps.nosex"),
+        clumped_expo_snps = path_to_output + "all_harmonized_clumped_snps.txt"
+    shell: # You can change --clump-field between 'ranksum' (which uses the rank average to clump) or 'rankmin' (which takes the minimum rank)
+        """
+        plink --bfile {params.bfile} --extract {input.rank} --clump {input.rank} --clump-r2 0.01 --clump-field 'rankmin' --out {params.out} --clump-p1 1
+
+        awk '$3 ~ /^rs/ {{print $3 }}' {output.clump_output} > {output.clumped_expo_snps}
+        """
+
+rule mvmr_analysis:
+    input: 
+        clumped_snps = path_to_output + "all_harmonized_clumped_snps.txt",
+        data = path_to_output + "harmonized_data_mvmr.tsv",
+        HBB_snps = "HBB_rsids.txt",
+        HLA_snps = "HLA_rsids.txt"
+    output:
+        output_filename
+    params:
+        out_name = OUTCOME_TRAITS[0]
+    script:
+        "script/mvmr_analaysis.R"

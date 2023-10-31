@@ -1,0 +1,102 @@
+TRAITS = ['LOAD_consortium', 'AGEDEATH', 'EDUAGE', 'URATE', 'AGEGLASS', 'AGELASTB', 
+  'AKI', 'ALB', 'BEERCIDER', 'WHITEWINE', 'FORTWINE', 'OTHERALCOOL', 'REDWINE', 
+  'SPIRITS', 'ALCOOLF', 'ALCOWF', 'ALP', 'ALT', 'ANAEMIAOTHER', 'ANEURYSM', 
+  'SLEEPAPNO_FIG', 'APOA', 'APOB', 'AST', 'ASTHMA', 'B12A', 'BALDING', 
+  'BREASTCANCER', 'BEEF', 'BIL', 'BIPOLAR', 'BWEIGHTFC', 'BIRTHWEIGHT', 'BMD', 
+  'BMI', 'BMR', 'BFM','BREAD', 'CA', 'CARDIOMYOPATHY', 'CATARACT', 'CELIAC_FIG',
+  'CHEESE', 'CHOLELITHIASIS', 'CHOLEST', 'CKD', 'COFFEE', 'VGAMES', 'AF', 
+  'COPD_FIG_UKBB', 'CREATININE', 'CRCCANCER', 'CREAC', 'CSTC', 'MDD', 'DBP', 
+  'EMPHYSEMA', 'ENDOMETRIOSIS_FIG_UKBB', 'EOSINO', 'EPILEPSY', 'AFFH', 'FDEATH', 
+  'FI', 'FRUIT', 'FVC', 'GGT', 'GLASSES', 'GLAUCOMA', 'GLUC', 'GOUT', 'GRIP', 
+  'HbA1c', 'HDL', 'MIGRAINE', 'PR', 'HEIGHT', 'HERNIA', 'HIP', 'INCOME', 
+  'HYPERTENSION', 'HYPERTHYROID', 'HYPOTHYROID', 'IBD_consortium', 'IDA', 'IGF1', 
+  'CAD_consortium', 'INSOMIA', 'KIDNEYCANCER', 'KSD', 'LSMOKE', 
+  'LIPIDDISORDER', 'LPA', 'LYMPH', 'MCH', 'MENARCHE', 'MENOPAUSE', 
+  'MENSTRUATION_UKBB', 'MINERALDISORDER', 'PHONE', 'MONO', 'MDEATH', 'MS',
+  'NBBIRTH', 'NBCIGDAY', 'NEUROTICISM', 'NEUTRO', 'OA', 'OVARIANCANCER', 'OESTR', 
+  'OSTEOPOROSIS', 'PROSTATECANCER', 'PD', 'PE', 'PHOS', 'SPORT', 'PLATELET', 
+  'PNEUMONIA_FIG_UKBB', 'PROXLP', 'PSORIASIS_FIG_UKBB', 'RA_consortium', 'RBC', 
+  'REACTIME', 'REPLP', 'RETICULO', 'RISKTAKE', 'SCZ_consortium', 'SHBG', 'SLE', 
+  'SLEEP', 'SLEEPTIME', 'LDL', 'SMOKINGST', 'STROKE', 'SUNP', 'SBP', 'T1D',
+  'TDI', 'TEST', 'TRI', 'TOTPROT', 'SMOKECES', 'UREA', 'VALVE_FIG', 'VEGETABLE', 
+  'VITD', 'WAIST', 'WATER', 'WBC', 'WEIGHT', 'WHR', 'WHRADJBMI',"TELOMERE"]
+EXPOSURE = ['AGEFIRSTB']
+
+
+### Setting paths 
+path_to_ma_files = "/SET/PATH/TO/DIRECTORY/"
+path_to_gwas_snps = "/SET/PATH/TO/DIRECTORY/"
+path_to_output = "/SET/PATH/TO/DIRECTORY/{expo_trait}_steiger/"
+path_to_bfile = "/SET/PATH/TO/DIRECTORY/"
+
+### Harmonize all SNPs
+rule all:
+    input:
+        expand(path_to_output + "{expo_trait}_SENS_snps.txt", expo_trait = EXPOSURE)
+
+### Get associated SNPs for all traits
+rule select_gwas_snps:
+    input:
+        path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma"
+    output:
+        path_to_gwas_snps + "{expo_trait}_snps.txt"
+    shell:
+        "awk '{{if ($7 < 5e-8) {{ print $1 }} }}' {input} > {output}"
+
+### Subset GWAS files to exposure SNPs
+rule subset_exp_snps:
+    input:
+        snps = path_to_gwas_snps + "{expo_trait}_snps.txt",
+        gwas = path_to_ma_files + "{trait}_gwas_summary_uk10kck.ma"
+    output:
+        path_to_output + "{expo_trait}_to_{trait}_gwas_subset.ma"
+    script:
+        "script/subset_exp_snps.py"
+
+### Harmonize data
+rule harmonize_data:
+    input:
+        snps = expand(path_to_gwas_snps + "{expo_trait}_snps.txt", expo_trait = EXPOSURE),
+        gwas_trait = expand(path_to_output + "{expo_trait}_to_{trait}_gwas_subset.ma", expo_trait = EXPOSURE, trait = TRAITS),
+        gwas_exp = expand(path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma", expo_trait = EXPOSURE)
+    output:
+        path_to_output + "{expo_trait}_harmonized_data_sens.tsv",
+        path_to_output + "{expo_trait}_harmonized_snps_sens.txt"
+    script:
+        "script/harmonize_data_sens.R"
+
+### Clumping of each traits separately
+rule clumping:
+    input:
+        gwas = expand(path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma", expo_trait = EXPOSURE),
+        expo_snps = path_to_output + "{expo_trait}_harmonized_snps_sens.txt",
+        bfile = path_to_bfile + "uk10k.autosomal.bed"
+    params:
+        bfile = path_to_bfile + "uk10k.autosomal",
+        out = path_to_output + "{expo_trait}_sens_clump"
+    output:
+        clump_input = temp("{expo_trait}_sens_snp_pval.txt"),
+        clump_output = temp(path_to_output + "{expo_trait}_sens_clump.clumped"),
+        clump_log = temp(path_to_output + "{expo_trait}_sens_clump.log"),
+        clump_nosex = temp(path_to_output + "{expo_trait}_sens_clump.nosex"),
+        clumped_expo_snps = path_to_output + "{expo_trait}_sens_clumped_snps.txt"
+    shell:
+        """
+        awk {{'print $1"\t"$7'}} {input.gwas} > {output.clump_input}
+
+        plink --bfile {params.bfile} --extract {input.expo_snps} --clump {output.clump_input} --clump-r2 0.01 --clump-field 'p' --out {params.out}
+
+        awk '$3 ~ /^rs/ {{print $3 }}' {output.clump_output} > {output.clumped_expo_snps}
+        """
+        
+### Steiger filter on clumped SNPs
+rule steiger_filter:
+    input:
+        data = path_to_output + "{expo_trait}_harmonized_data_sens.tsv",
+        snps = path_to_output + "{expo_trait}_sens_clumped_snps.txt",
+        HBB_snps = "HBB_rsids.txt",
+        HLA_snps = "HLA_rsids.txt"
+    output:
+        path_to_output + "{expo_trait}_SENS_snps.txt"
+    script:
+         "script/steiger_filter_sens.R"

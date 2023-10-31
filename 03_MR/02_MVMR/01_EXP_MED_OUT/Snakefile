@@ -1,0 +1,101 @@
+EXPO_TRAITS = ['BMI']
+OUTCOME_TRAITS = ['TELOMERE']
+MEDIATOR_TRAITS = ['AGEFIRSTB']
+
+### Setting paths 
+path_to_ma_files = "/SET/PATH/TO/DIRECTORY/"
+path_to_output = "/SET/PATH/TO/DIRECTORY/{expo_trait}_to_{outcome_trait}_via_{med_trait}/"
+path_to_gwas_snps = "/SET/PATH/TO/DIRECTORY/"
+path_to_bfile = "/SET/PATH/TO/DIRECTORY/"
+
+### Result file
+rule all:
+    input:
+        expand(path_to_output + "{expo_trait}_to_{outcome_trait}_via_{med_trait}_mediation_result.tsv", expo_trait = EXPO_TRAITS, med_trait = MEDIATOR_TRAITS, outcome_trait = OUTCOME_TRAITS)
+
+### Get exposure snps
+rule select_gwas_snps:
+    input:
+        path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma"
+    output:
+        path_to_gwas_snps + "{expo_trait}_snps.txt"
+    shell:
+        "awk '{{if ($7 < 5e-8) {{ print $1 }} }}' {input} > {output}"
+
+### Harmonize exposure snps
+rule harmonize_exposure_snps:
+    input:
+        snps = path_to_gwas_snps + "{expo_trait}_snps.txt",
+        med_df = path_to_ma_files + "{med_trait}_gwas_summary_uk10kck.ma",
+        outcome_df = path_to_ma_files + "{outcome_trait}_gwas_summary_uk10kck.ma"
+    output:
+        path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps.txt"
+    script:
+        "scripts/harmonize_exposure_snps.py"
+
+### Clump harmonized exposure snps
+rule clump_harmonized_snps:
+    input:
+        gwas = path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma",
+        expo_snps = path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps.txt",
+        bfile = path_to_bfile + "uk10k.autosomal.bed"
+    params:
+        bfile = path_to_bfile + "uk10k.autosomal",
+        out = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps"
+    output:
+        clump_input = temp(path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snp_pval.txt"),
+        clump_output = temp(path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps.clumped"),
+        clump_log = temp(path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps.log"),
+        clump_nosex = temp(path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps.nosex"),
+        clumped_expo_snps = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps.txt"
+    shell:
+        """
+        awk {{'print $1"\t"$7'}} {input.gwas} > {output.clump_input}
+
+        plink --bfile {params.bfile} --extract {input.expo_snps} --clump {output.clump_input} --clump-r2 0.01 --clump-field 'p' --out {params.out}
+
+        awk '$3 ~ /^rs/ {{print $3 }}' {output.clump_output} > {output.clumped_expo_snps}
+        """
+
+rule harmonize_exposure_mediator_snps:
+    input:
+        expo_df = path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma",
+        med_df = path_to_ma_files + "{med_trait}_gwas_summary_uk10kck.ma",
+        outcome_df = path_to_ma_files + "{outcome_trait}_gwas_summary_uk10kck.ma",
+        clumped_expo_snps = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps.txt",
+        med_snps = path_to_gwas_snps + "{med_trait}_snps.txt"
+    output:
+        harmonized = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_data.tsv",
+        for_clumping = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_combined_for_clumping.tsv"
+    script:
+        "scripts/harmonize_exposure_mediator_snps.R"
+
+rule clump_mediation_snps:
+    input:
+        clump_input = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_combined_for_clumping.tsv",
+        bfile = path_to_bfile + "uk10k.autosomal.bed"
+    params:
+        bfile = path_to_bfile + "uk10k.autosomal",
+        out = path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_for_mediation"
+    output:
+        clump_output = temp(path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_for_mediation.clumped"),
+        clump_log = temp(path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_for_mediation.log"),
+        clump_nosex = temp(path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_for_mediation.nosex"),
+        clumped_snps = path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_for_mediation.txt"
+    shell:
+        """
+        plink --bfile {params.bfile} --clump {input.clump_input} --clump-r2 0.01 --clump-field 'p' --out {params.out}
+
+        awk '$3 ~ /^rs/ {{print $3 }}' {output.clump_output} > {output.clumped_snps}
+        """
+
+rule mediation_analysis:
+    input:
+        data = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_data.tsv",
+        snps = path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_for_mediation.txt",
+        HBB_snps = "HBB_rsids.txt",
+        HLA_snps = "HLA_rsids.txt"
+    output:
+        path_to_output + "{expo_trait}_to_{outcome_trait}_via_{med_trait}_mediation_result.tsv" 
+    script:
+        "scripts/mediation_analysis.R"
