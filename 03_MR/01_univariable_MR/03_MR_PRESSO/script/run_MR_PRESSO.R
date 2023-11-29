@@ -84,11 +84,11 @@ dat <- dat[dat$zval_steiger > -1.96, ]
 print(paste0("Number of SNPs after steiger filter: ", nrow(dat)))
         
 ### Remove SNP from the HBB locus (chr11 5246696-5248301)
-dat <- dplyr::filter(dat, !SNP %in% HBB_rsids$V1)
+dat <- dplyr::filter(dat, !SNP %in% HBB_rsids$SNP)
 print(paste0("Number of SNPs without HBB locus: ", nrow(dat)))
     
 ### Remove SNPs from HLA locus (chr6 25MB-37MB)
-dat <- dplyr::filter(dat, !SNP %in% HLA_rsids$V1)
+dat <- dplyr::filter(dat, !SNP %in% HLA_rsids$SNP)
 print(paste0("Number of SNPs without HLA locus: ", nrow(dat)))
     
 ### MR analysis
