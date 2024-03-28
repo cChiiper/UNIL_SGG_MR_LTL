@@ -1,8 +1,42 @@
 import numpy as np
 import pandas as pd
 
-TRAITS = ["BODYSIZE10"]
-PATH_TRAIT_DIC = {"BODYSIZE10":"1687.gwas.imputed_v3.both_sexes.tsv.gz"}
+TRAITS = ["AGEDEATH", "AGEFIRSTB", "AGEGLASS", "AGELASTB", "BEERCIDER", "WHITEWINE", "FORTWINE", "OTHERALCOOL", 
+          "REDWINE", "SPIRITS", "ALCOOLF", "BEEF", "BWEIGHTFC", "CHEESE", "CHOLEST", "COFFEE", "VGAMES", "FDEATH", "GLASSES",
+          "HIP", "INCOME", "LSMOKE", "PHONE", "MDEATH", "NBBIRTH", "NBCIGDAY", "OESTR", "SLEEPTIME", "SUNP", "TDI", "WAIST", "WATER"]
+
+PATH_TRAIT_DIC = {"AGEDEATH":"/40007_irnt.gwas.imputed_v3.both_sexes.tsv.bgz",
+                  "AGEFIRSTB":"/2754.gwas.imputed_v3.female.tsv.gz",
+                  "AGEGLASS":"/2217_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "AGELASTB":"/2764.gwas.imputed_v3.female.tsv.gz",
+                  "BEERCIDER":"/1588.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "WHITEWINE":"/1578.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "FORTWINE":"/1608.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "OTHERALCOOL":"/5364.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "REDWINE":"/1568.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "SPIRITS":"/1598.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "ALCOOLF":"/1558.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "BEEF":"/1369.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "BWEIGHTFC":"/female_specific/2744.gwas.imputed_v3.female.tsv.bgz",
+                  "CHEESE":"/1408.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "CHOLEST":"/30690_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "COFFEE":"/1498.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "VGAMES":"/2237.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "FDEATH":"/1807_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "GLASSES":"/2207.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "HIP":"/49_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "INCOME":"/738.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "LSMOKE":"/2644.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "PHONE":"/1110.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "MDEATH":"/3526_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "NBBIRTH":"/2734.gwas.imputed_v3.female.tsv.bgz",
+                  "NBCIGDAY":"/3456.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "OESTR":"/30800_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "SLEEPTIME":"/1160.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "SUNP":"/2267.gwas.imputed_v3.both_sexes.tsv.bgz",
+                  "TDI":"/189_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "WAIST":"/48_irnt.gwas.imputed_v3.both_sexes.tsv.gz",
+                  "WATER":"/1528.gwas.imputed_v3.both_sexes.tsv.gz"}
 
 path_to_output = "/SET/PATH/TO/DIRECTORY/"
 
@@ -15,9 +49,11 @@ rule format_ma:
         lambda wildcards: PATH_TRAIT_DIC[wildcards.trait]
     output:
         temp(path_to_output + "{trait}_gwas_summary.ma")
-    threads: 1
     resources:
-        mem_mb = 20000
+        time="00:30:00",
+        nodes=1,
+        cpus=1,
+        mem="20GB"
     script:
         "scripts/prepare_neale_gwas_ma_format.py"
 
@@ -25,7 +61,7 @@ rule variant_check:
     input: 
         gwas = path_to_output + "{trait}_gwas_summary.ma"
     params:
-        uk10k = "uk10k.autosomal",
+        uk10k = "/uk10k.autosomal",
         bim_file = "{trait}_snps_uk10k"
     output:
         out = path_to_output + "{trait}_gwas_summary_uk10kck.ma",
@@ -33,9 +69,11 @@ rule variant_check:
         bim_file = temp("{trait}_snps_uk10k.bim"),
         log = temp("{trait}_snps_uk10k.log"),
         nosex = temp("{trait}_snps_uk10k.nosex")
-    threads: 1
     resources:
-        mem_mb = 8000
+        time="00:30:00",
+        nodes=1,
+        cpus=1,
+        mem="16GB"
     shell:
         """
         awk '{{print $1}}' {input.gwas} > {output.snps}

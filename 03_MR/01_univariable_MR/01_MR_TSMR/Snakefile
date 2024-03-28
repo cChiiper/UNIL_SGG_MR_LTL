@@ -1,0 +1,142 @@
+OUTCOMES = ['LOAD_consortium', 'AGEDEATH', 'EDUAGE', 'AGEFIRSTB', 'AGEGLASS', 'AGELASTB', 'AKI', 'ALB', 'BEERCIDER', 'WHITEWINE', 'FORTWINE',
+  'OTHERALCOOL', 'REDWINE', 'SPIRITS', 'ALCOOLF', 'ALCOWF', 'ALP', 'ALT', 'ANAEMIAOTHER', 'ANEURYSM', 'SLEEPAPNO_FIG', 'APOA', 'APOB', 
+  'AST', 'ASTHMA', 'B12A', 'BALDING', 'BREASTCANCER', 'BEEF', 'BIL', 'BIPOLAR', 'BWEIGHTFC', 'BIRTHWEIGHT', 'BMD', 'BMI', 'BMR', 'BFM', 
+  'CA', 'CARDIOMYOPATHY', 'CATARACT', 'CELIAC_FIG', 'CHEESE', 'CHOLELITHIASIS', 'CHOLEST', 'CKD', 'COFFEE', 'VGAMES', 'AF', 'COPD_FIG_UKBB', 
+  'CREATININE', 'CRCCANCER', 'CREAC', 'CSTC', 'MDD', 'DBP', 'EMPHYSEMA', 'ENDOMETRIOSIS_FIG_UKBB', 'EOSINO', 'EPILEPSY', 'AFFH', 'FDEATH', 
+  'FI', 'FRUIT', 'FVC', 'GGT', 'GLASSES', 'GLAUCOMA', 'GLUC', 'GOUT', 'GRIP', 'HbA1c', 'HDL', 'MIGRAINE', 'PR', 'HEIGHT', 'HERNIA', 'HIP',
+  'INCOME', 'HYPERTENSION', 'HYPERTHYROID', 'HYPOTHYROID', 'IBD_consortium', 'IDA', 'IGF1', 'CAD_consortium', 'INSOMIA', 'KIDNEYCANCER', 
+  'KSD', 'LDL', 'LSMOKE', 'LIPIDDISORDER', 'LPA', 'LYMPH', 'MCH', 'MENARCHE', 'MENOPAUSE', 'MENSTRUATION_UKBB', 'MINERALDISORDER', 'PHONE',
+  'MONO', 'MDEATH', 'MS', 'NBBIRTH', 'NBCIGDAY', 'NEUROTICISM', 'NEUTRO', 'OA', 'OVARIANCANCER', 'OESTR', 'OSTEOPOROSIS', 'PROSTATECANCER',
+  'PD', 'PE', 'PHOS', 'SPORT', 'PLATELET', 'PNEUMONIA_FIG_UKBB', 'PROXLP', 'PSORIASIS_FIG_UKBB', 'RA_consortium', 'RBC', 'REACTIME', 'REPLP',
+  'RETICULO', 'RISKTAKE', 'SCZ_consortium', 'SHBG', 'SLE', 'SLEEP', 'SLEEPTIME', 'SMOKECES', 'SMOKINGST', 'STROKE', 'SUNP', 'SBP', 'T1D', 'TDI',
+  'TEST', 'TRI', 'TOTPROT', 'URATE', 'UREA', 'VALVE_FIG', 'VEGETABLE', 'VITD', 'WAIST', 'WATER', 'WBC', 'WEIGHT', 'WHR', 'WHRADJBMI','CHIP']
+EXPOSURES = ["TELOMERE","TELOMERE_REP"]
+
+# EXPOSURES = ["TELOMERE"]
+# OUTCOMES = ["SEX"]
+
+
+### Setting paths 
+path_to_ma_files = "/SET/PATH/TO/DIRECTORY/"
+path_to_output = "/SET/PATH/TO/DIRECTORY/{expo_trait}_to_{outcome_trait}/"
+
+# Rule to identify the files
+rule all:
+    input:
+        expand(path_to_output + "{expo_trait}_to_{outcome_trait}_TSMR_result.tsv", 
+               expo_trait=EXPOSURES, 
+               outcome_trait=OUTCOMES)
+        # expand(path_to_output + "{expo_trait}_to_{outcome_trait}_TSMR_result_no_CHIP.tsv", 
+        #        expo_trait=EXPOSURES, 
+        #        outcome_trait=OUTCOMES)
+        
+rule select_gwas_snps:
+    input:
+        path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma"
+    output:
+        path_to_output + "{expo_trait}_snps.txt"
+    resources:
+        time="00:05:00",
+        nodes=1,
+        cpus=1,
+        mem="2GB"
+    shell:
+        "awk '{{if ($7 < 5e-8) {{ print $1 }} }}' {input} > {output}"
+
+rule harmonize_snps:
+    input:
+        path_to_output + "{expo_trait}_snps.txt",
+        path_to_ma_files + "{outcome_trait}_gwas_summary_uk10kck.ma"
+    output:
+        path_to_output + "{expo_trait}_to_{outcome_trait}_snps.txt"
+    resources:
+        time="00:10:00",
+        nodes=1,
+        cpus=1,
+        mem="10GB"
+    script:
+        "scripts/harmonize_snps.py"
+
+rule clump_harmonized_snps:
+    input:
+        gwas = path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma",
+        expo_snps = path_to_output + "{expo_trait}_to_{outcome_trait}_snps.txt",
+        bfile = "/uk10k.autosomal.bed"
+    params:
+        bfile = "/uk10k.autosomal",
+        out = path_to_output + "{expo_trait}_to_{outcome_trait}_clump"
+    output:
+        clump_input = temp("{expo_trait}_to_{outcome_trait}_snp_pval.txt"),
+        clump_output = temp(path_to_output + "{expo_trait}_to_{outcome_trait}_clump.clumped"),
+        clump_log = temp(path_to_output + "{expo_trait}_to_{outcome_trait}_clump.log"),
+        clump_nosex = temp(path_to_output + "{expo_trait}_to_{outcome_trait}_clump.nosex"),
+        clumped_expo_snps = path_to_output + "{expo_trait}_to_{outcome_trait}_clumped_snps.txt"
+    resources:
+        time="00:10:00",
+        nodes=1,
+        cpus=1,
+        mem="8GB"
+    shell:
+        """
+        awk {{'print $1"\t"$7'}} {input.gwas} > {output.clump_input}
+
+        plink --bfile {params.bfile} --extract {input.expo_snps} --clump {output.clump_input} --clump-r2 0.01 --clump-field 'p' --out {params.out}
+
+        awk '$3 ~ /^rs/ {{print $3 }}' {output.clump_output} > {output.clumped_expo_snps}
+        """
+
+rule prepare_MR_data:
+    input:
+        expo_df = path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma",
+        outcome_df = path_to_ma_files + "{outcome_trait}_gwas_summary_uk10kck.ma",
+        snps = path_to_output + "{expo_trait}_to_{outcome_trait}_clumped_snps.txt"
+    output:
+        path_to_output + "{expo_trait}_to_{outcome_trait}_MR_data.tsv"
+    resources:
+        time="00:10:00",
+        nodes=1,
+        cpus=1,
+        mem="10GB"
+    script:
+        "scripts/prepare_MR_data.R"
+
+# Rule to process the files
+rule process_mr_data:
+    input:
+        mr_data = path_to_output + "{expo_trait}_to_{outcome_trait}_MR_data.tsv",
+        HBB_snps = "/HBB_uk10k_rsids.txt",
+        HLA_snps = "/HLA_uk10k_rsids.txt"
+    params:
+        EXPNAME = "{expo_trait}",
+        OUTNAME = "{outcome_trait}"
+    output:
+        path_to_output + "{expo_trait}_to_{outcome_trait}_TSMR_result.tsv",
+        path_to_output + "{expo_trait}_to_{outcome_trait}_TSMR_result_plots.pdf"
+    resources:
+        time="00:10:00",
+        nodes=1,
+        cpus=1,
+        mem="4GB"
+    script:
+        "scripts/run_TSMR.R"
+
+
+# Rule to process the files
+# rule process_mr_data_no_CHIP:
+#     input:
+#         mr_data = path_to_output + "{expo_trait}_to_{outcome_trait}_MR_data.tsv",
+#         HBB_snps = "/HBB_uk10k_rsids.txt",
+#         HLA_snps = "/HLA_uk10k_rsids.txt",
+#         CHIP_snps = "/CHIP_uk10k_rsids.txt"
+#     params:
+#         EXPNAME = "{expo_trait}",
+#         OUTNAME = "{outcome_trait}"
+#     output:
+#         path_to_output + "{expo_trait}_to_{outcome_trait}_TSMR_result_no_CHIP.tsv"
+#     resources:
+#         time="00:10:00",
+#         nodes=1,
+#         cpus=1,
+#         mem="4GB"
+#     script:
+#         "scripts/run_TSMR_no_CHIP.R"

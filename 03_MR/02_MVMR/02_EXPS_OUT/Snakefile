@@ -1,3 +1,4 @@
+# MED_TRAITS = ["CHIP", "MCH","EOSINO","LYMPH","MONO","NEUTRO","PLATELET","RBC","RETICULO","WBC","TELOMERE"]
 MED_TRAITS = ['HEIGHT','IGF1']
 OUTCOME_TRAITS = ['TELOMERE']
 
@@ -108,8 +109,8 @@ rule mvmr_analysis:
     input: 
         clumped_snps = path_to_output + "all_harmonized_clumped_snps.txt",
         data = path_to_output + "harmonized_data_mvmr.tsv",
-        HBB_snps = "HBB_rsids.txt",
-        HLA_snps = "HLA_rsids.txt"
+        HBB_snps = "HBB_uk10k_rsids.txt",
+        HLA_snps = "HLA_uk10k_rsids.txt"
     output:
         output_filename
     params:

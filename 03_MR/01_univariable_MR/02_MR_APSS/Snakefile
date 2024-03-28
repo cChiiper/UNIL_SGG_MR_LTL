@@ -1,0 +1,52 @@
+# EXPOSURES = ["TELOMERE"]
+# OUTCOMES = ['ALB', 'ANEURYSM', 'AST', 'CAD_consortium', 'EOSINO', 'FVC', 'HDL', 'IGF1', 'KIDNEYCANCER', 'LOAD_consortium', 
+#             'LYMPH', 'MCH', 'MENSTRUATION_UKBB', 'MONO', 'NEUTRO', 'OVARIANCANCER', 'PLATELET', 'RA_consortium', 'RBC', 
+#             'SHBG', 'SLE', 'TEST', 'TOTPROT', 'WHRADJBMI']
+
+EXPOSURES = ['AGEFIRSTB', 'AGELASTB', 'ALCOWF', 'APOB', 'BFM', 'BMI', 'CHOLEST', 'CREAC', 'EDUAGE', 'EOSINO', 'HEIGHT', 'HYPERTENSION', 'IGF1', 
+             'LDL', 'LIPIDDISORDER', 'LSMOKE', 'LYMPH', 'MCH', 'MDD', 'RBC', 'SMOKECES','URATE', 'WBC'] 
+OUTCOMES = ['TELOMERE']
+
+### Setting paths 
+# Input paths
+path_to_ma_files = "/SET/PATH/TO/DIRECTORY/"
+# The 3 below shoud not end with /
+path_to_ldsc = "/eur_w_ld_chr"
+path_to_bfile = "/uk10k.autosomal"
+path_to_plink = "/plink"
+# Output path
+path_to_output = "/{expo_trait}_to_{outcome_trait}/"
+# SNPs to exclude paths
+path_to_HBB = "/HBB_uk10k_rsids.txt"
+path_to_HLA = "/HLA_uk10k_rsids.txt"
+
+# Rule to identify the files
+rule all:
+    input:
+        expand(path_to_output + "{expo_trait}_to_{outcome_trait}_MRAPSS_result.tsv", 
+               expo_trait=EXPOSURES, 
+               outcome_trait=OUTCOMES)
+
+rule run_MRAPSS:
+    input:
+        exp_gwas = path_to_ma_files + "{expo_trait}_gwas_summary_uk10kck.ma",
+        out_gwas = path_to_ma_files + "{outcome_trait}_gwas_summary_uk10kck.ma",
+        HBB_snps = path_to_HBB,
+        HLA_snps = path_to_HLA
+    params:
+        ldsc_path = path_to_ldsc,
+        bfile_path = path_to_bfile,
+        plink_path = path_to_plink
+    output:
+        MRAPSS_res = path_to_output + "{expo_trait}_to_{outcome_trait}_MRAPSS_result.tsv",
+        RDS_file = path_to_output + "{expo_trait}_to_{outcome_trait}_MRAPSS_save.rds",
+        plot_file = path_to_output + "{expo_trait}_to_{outcome_trait}_MRAPSS_plot.pdf",
+        paras_RDS = path_to_output + "{expo_trait}_to_{outcome_trait}_MRAPSS_paras.rds"
+    resources:
+        time="00:25:00",
+        nodes=1,
+        cpus=1,
+        mem="16GB"
+    script:
+        "scripts/run_MRAPSS.R"
+

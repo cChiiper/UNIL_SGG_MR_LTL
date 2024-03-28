@@ -1,8 +1,38 @@
 import numpy as np
 import pandas as pd
 
-TRAITS = ["SMOKECES"]
-PATH_TRAIT_DIC = {"SMOKECES": "SmokingCessation.txt.gz"}
+
+# TRAITS = ["PROXLP"]
+# PATH_TRAIT_DIC = {"PROXLP": "/lifegen_phase2_bothpl_alldr_2017_09_18.tsv.gz"}
+
+# TRAITS = ["BALDING"]
+# PATH_TRAIT_DIC = {"BALDING": "/mpb_bolt_lmm_aut_x.tab.zip"}
+
+# TRAITS = ["TELOMERE_REP"]
+# PATH_TRAIT_DIC = {"TELOMERE_REP": "/HGGadvances2023_Allaire_GWASfulldataset_SummaryStats.gz"}
+
+# TRAITS = ["SMOKECES"]
+# PATH_TRAIT_DIC = {"SMOKECES": "/SmokingCessation.txt.gz"}
+
+# TRAITS = ["CHIP"]
+# PATH_TRAIT_DIC = {"CHIP":"/LiftOverHg38toHg19/EAFf_GCST90165261_buildGRCh37.parq"}
+
+# TRAITS = ["EDUAGE", "ALCOWF", "FRUIT", "INSOMIA", "SPORT", "REACTIME", "RISKTAKE", "SMOKINGST", "VEGETABLE"]
+# PATH_TRAIT_DIC = {"EDUAGE": "/education_age",
+#                   "ALCOWF": "/alcfrequencyweekly",
+#                   "FRUIT": "/fruit_intake_con",
+#                   "INSOMIA": "/insomnia_con",
+#                   "SPORT": "/physical_activity",
+#                   "REACTIME": "/reaction_time",
+#                   "RISKTAKE": "/risk_taking",
+#                   "SMOKINGST": "/smoking_status",
+#                   "VEGETABLE": "/vegetable_intake_con"}
+
+# TRAITS = ["SEX"]
+# PATH_TRAIT_DIC = {"SEX": "/GCST90013474_buildGRCh37.tsv.gz"}
+
+TRAITS = ["NAFLD"]
+PATH_TRAIT_DIC = {"NAFLD": "/GCST90091033_buildGRCh37.tsv.gz"}
 
 path_to_output = "/SET/PATH/TO/DIRECTORY/"
 

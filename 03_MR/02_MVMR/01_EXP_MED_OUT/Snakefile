@@ -1,6 +1,14 @@
-EXPO_TRAITS = ['BMI']
-OUTCOME_TRAITS = ['TELOMERE']
-MEDIATOR_TRAITS = ['AGEFIRSTB']
+# EXPO_TRAITS = ["AGEFIRSTB", "AGELASTB", "ALCOWF", "APOB", "BMI", "BFM", "CHOLEST", "CREAC",
+#     "MDD", "EOSINO", "HEIGHT", "HYPERTENSION", "IGF1", "LDL", "LSMOKE", "LIPIDDISORDER",
+#     "LYMPH", "MCH", "RBC", "URATE", "WBC", "EDUAGE", "SMOKECES"]
+# MEDIATOR_TRAITS = ['TELOMERE']
+# OUTCOME_TRAITS = ['ALB', 'ANEURYSM', 'AST', 'CAD_consortium', 'EOSINO', 'FVC', 'HDL', 'IGF1', 'KIDNEYCANCER', 'LOAD_consortium', 
+#             'LYMPH', 'MCH', 'MENSTRUATION_UKBB', 'MONO', 'NEUTRO', 'OVARIANCANCER', 'PLATELET', 'RA_consortium', 'RBC', 
+#             'SHBG', 'SLE', 'TEST', 'TOTPROT', 'WHRADJBMI','PROXLP']
+
+EXPO_TRAITS = ["MDD"]
+MEDIATOR_TRAITS = ["CREAC", "ALCOWF", "SMOKECES", "BMI"]
+OUTCOME_TRAITS = ["TELOMERE"]
 
 ### Setting paths 
 path_to_ma_files = "/SET/PATH/TO/DIRECTORY/"
@@ -93,8 +101,8 @@ rule mediation_analysis:
     input:
         data = path_to_output + "clump_expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_data.tsv",
         snps = path_to_output + "expo_{expo_trait}_med_{med_trait}_out_{outcome_trait}_snps_for_mediation.txt",
-        HBB_snps = "HBB_rsids.txt",
-        HLA_snps = "HLA_rsids.txt"
+        HBB_snps = "HBB_uk10k_rsids.txt",
+        HLA_snps = "HLA_uk10k_rsids.txt"
     output:
         path_to_output + "{expo_trait}_to_{outcome_trait}_via_{med_trait}_mediation_result.tsv" 
     script:
