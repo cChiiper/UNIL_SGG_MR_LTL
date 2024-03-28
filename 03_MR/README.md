@@ -1,5 +1,8 @@
 ## 03_MR
 
+### 00_uk10k_snps_filter.sh
+Bash script to extract SNPs of specific region from the uk10k reference panel
+
 ### 00_GWAS_prep
 Contains scripts to format GWAS summary statistics into the same format (https://yanglab.westlake.edu.cn/software/gcta/#COJO).
 * GWAS_prep_composed: Scripts to generate the reproductive lifespan GWAS.
