@@ -12,7 +12,7 @@ R script to extract UK Biobank traits based on data-fields
 Takes a metadata dataframe containing "FieldID" for UK Biobank data-fields, "pheno" for abbreviation, "type" for the type of trait (factor, integer, continuous). 
 
 ### 03_disease_extraction.R
-R script to extract disease traits based on an inclusion and exclusion list. See https://doi.org/10.1101/2023.07.31.23293408.
+R script to extract disease traits based on an inclusion and exclusion list. See https://doi.org/10.1186/s13073-023-01265-5.
 
 ### 04_merge_dataframes.R
 R script to merge non-disease and disease traits together.
